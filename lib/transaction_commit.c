@@ -255,6 +255,16 @@ xbps_transaction_commit(struct xbps_handle *xhp)
 		    "%s\n", strerror(rv));
 		goto out;
 	}
+#if 0
+	/*
+	 * Check diskspace.
+	 */
+	if ((rv = xbps_transaction_diskspace(xhp, iter)) != 0) {
+		xbps_dbg_printf(xhp, "[trans] failed to check diskspace: "
+		    "%s\n", strerror(rv));
+		goto out;
+	}
+#endif
 	/*
 	 * Install, update, configure or remove packages as specified
 	 * in the transaction dictionary.

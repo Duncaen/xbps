@@ -155,5 +155,7 @@ xbps_array_t HIDDEN xbps_get_pkg_fulldeptree(struct xbps_handle *,
 		const char *, bool);
 struct xbps_repo HIDDEN *xbps_regget_repo(struct xbps_handle *,
 		const char *);
+int HIDDEN xbps_transaction_diskspace(struct xbps_handle *,
+		xbps_object_iterator_t);
 
 #endif /* !_XBPS_API_IMPL_H_ */
