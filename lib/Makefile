@@ -39,7 +39,7 @@ OBJS += package_msg.o transaction_shlibs.o
 OBJS += transaction_commit.o transaction_package_replace.o
 OBJS += transaction_prepare.o transaction_ops.o transaction_store.o
 OBJS += transaction_revdeps.o transaction_conflicts.o
-OBJS += transaction_files.o
+OBJS += transaction_files.o transaction_solve.o
 OBJS += pubkey2fp.o package_fulldeptree.o
 OBJS += download.o initend.o pkgdb.o
 OBJS += plist.o plist_find.o plist_match.o archive.o
@@ -48,6 +48,7 @@ OBJS += repo.o repo_pkgdeps.o repo_sync.o
 OBJS += rpool.o cb_util.o proplib_wrapper.o
 OBJS += package_alternatives.o
 OBJS += conf.o log.o
+OBJS += version.o
 OBJS += $(EXTOBJS) $(COMPAT_OBJS)
 # unnecessary unless pkgdb format changes
 # OBJS += pkgdb_conversion.o

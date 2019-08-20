@@ -254,6 +254,67 @@ xbps_pkg_name(const char *pkg)
 	return buf;
 }
 
+size_t
+xbps_pkgname_len(const char *src)
+{
+	const char *p;
+	if ((p = strpbrk(src, "><*?[]"))) {
+		if (p-src > 0 && *(p-1) == '-')
+			p--;
+	} else if ((p = strrchr(src, '-'))) {
+		bool valid = false;
+		for (unsigned int i = 0; i < strlen(p); i++) {
+			if (p[i] == '_')
+				break;
+			if (isdigit((unsigned char)p[i]) && strchr(p, '_')) {
+				valid = true;
+				break;
+			}
+		}
+		if (!valid)
+			p = NULL;
+	}
+	if (!p)
+		return strlen(src);
+	return p-src;
+}
+
+size_t
+xbps_pkgname_cpy(char *dst, const char *src, size_t dstsize)
+{
+	const char *p, *s;
+	char *d;
+	size_t n;
+	ssize_t len;
+
+	if ((len = xbps_pkgname_len(src)) == 0)
+		return xbps_strlcpy(dst, src, dstsize);
+
+	p = src+len;
+	n = dstsize;
+	s = src;
+	d = dst;
+	if (n != 0) {
+		while (--n != 0) {
+			if (s == p) {
+				*d++ = '\0';
+				s++;
+				break;
+			}
+			if ((*d++ = *s++) == '\0')
+				break;
+		}
+	}
+	if (n == 0) {
+		if (dstsize != 0)
+			*d = '\0';
+		for (; *s && s <= p; s++)
+			;
+	}
+
+	return (s - src - 1);
+}
+
 char *
 xbps_pkgpattern_name(const char *pkg)
 {
@@ -405,6 +466,7 @@ xbps_xasprintf(const char *fmt, ...)
 	return buf;
 }
 
+#if 0
 /*
  * Match pkg against pattern, return 1 if matching, 0 otherwise or -1 on error.
  */
@@ -430,6 +492,7 @@ xbps_pkgpattern_match(const char *pkg, const char *pattern)
 	/* no match */
 	return 0;
 }
+#endif
 
 /*
  * Small wrapper for NetBSD's humanize_number(3) with some

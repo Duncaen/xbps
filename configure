@@ -17,6 +17,7 @@ HAVE_VISIBILITY=no
 SET_RPATH=
 DEBUG=yes
 FULL_DEBUG=
+LTO=yes
 
 usage()
 {
@@ -42,6 +43,7 @@ for instance \`--prefix=\$HOME'.
 --dbdir=DIR		Path to the pkgdb directory [LOCALSTATEDIR/db/xbps]
 
 --verbose 		Disable silent build to see compilation details
+--disable-lto		Build without link time optimizations (default enabled)
 --enable-rpath		Link binaries with rpath '\$ORIGIN/../lib'
 --enable-api-docs 	Install XBPS API Library documentation (default disabled)
 --enable-fulldebug	Enables extra debugging code (default disabled)
@@ -59,6 +61,7 @@ for x; do
 	case "$opt" in
 	--enable-fulldebug) FULL_DEBUG=yes;;
 	--enable-rpath) SET_RPATH=yes;;
+	--disable-lto) LTO=no;;
 	--prefix) PREFIX=$var;;
 	--exec-prefix) EPREFIX=$var;;
 	--bindir) BINDIR=$var;;
@@ -338,12 +341,14 @@ fi
 #
 # Enable LTO if supported (clang and gcc)
 #
-check_compiler_flag lto f CFLAGS
-if [ $? -eq 0 ]; then
-	echo "LDFLAGS += -flto" >> $CONFIG_MK
-	if [ "$CC" = "gcc" ]; then
-		echo "AR = gcc-ar" >> $CONFIG_MK
-		echo "RANLIB = gcc-ranlib" >>$CONFIG_MK
+if [ "$LTO" = "yes" ]; then
+	check_compiler_flag lto f CFLAGS
+	if [ $? -eq 0 ]; then
+		echo "LDFLAGS += -flto" >> $CONFIG_MK
+		if [ "$CC" = "gcc" ]; then
+			echo "AR = gcc-ar" >> $CONFIG_MK
+			echo "RANLIB = gcc-ranlib" >>$CONFIG_MK
+		fi
 	fi
 fi
 

@@ -43,6 +43,7 @@
 #include <archive_entry.h>
 
 #define XBPS_MAXPATH	512
+#define XBPS_MAXPKGNAME	512
 
 /**
  * @file include/xbps.h
@@ -1923,6 +1924,20 @@ char *xbps_repository_pkg_path(struct xbps_handle *xhp, xbps_dictionary_t pkgd);
 char *xbps_pkg_name(const char *pkg);
 
 /**
+ * Gets the name of a package string. Package strings are composed
+ * by a @<pkgname@>/@<version@> pair and separated by the <em>minus</em>
+ * sign, i.e <b>foo-2.0</b>.
+ *
+ * @param[in] pkg Package string.
+ *
+ * @return A pointer to a malloc(3)d string, NULL otherwise and
+ * errno is set appropiately. The pointer should be free(3)d when it's
+ * no longer needed.
+ */
+size_t xbps_pkgname_cpy(char *dst, const char *pkg, size_t dstsize);
+size_t xbps_pkgname_len(const char *src);
+
+/**
  * Gets a the package name of a package pattern string specified by
  * the \a pattern argument.
  *
@@ -2129,6 +2144,41 @@ xbps_dictionary_t
 xbps_plist_dictionary_from_file(struct xbps_handle *xhp, const char *fname);
 
 /*@}*/
+
+
+int xbps_transaction_init1(struct xbps_handle *xhp);
+int xbps_transaction_remove(struct xbps_handle *xhp, const char *pkgname, bool recursive);
+int xbps_transaction_autoremove(struct xbps_handle *xhp);
+int xbps_transaction_add(struct xbps_handle *xhp, const char *pkgname);
+int xbps_transaction_solve(struct xbps_handle *xhp);
+
+typedef struct xbps_constraint xbps_constraint_t;
+
+int xbps_version_cmp(const char *a, const char *b);
+const char **xbps_version_sort(const char **versions, size_t len);
+
+xbps_constraint_t *xbps_constraint_version(const char *versions);
+xbps_constraint_t *xbps_constraint_versions(const char **versions);
+bool xbps_constraint_allows(xbps_constraint_t *a, const char *b);
+bool xbps_constraint_allows_all(xbps_constraint_t *a, xbps_constraint_t *b);
+bool xbps_constraint_allows_any(xbps_constraint_t *a, xbps_constraint_t *b);
+
+/* xbps_constraint_t *xbps_constraint_parse(const char *src, size_t n); */
+/* xbps_constraint_t *xbps_constraint_any(void); */
+/* int xbps_constraint_cpy(xbps_constraint_t *dst, xbps_constraint_t *src); */
+/* xbps_constraint_t *xbps_constraint_dup(xbps_constraint_t *src); */
+
+/* size_t xbps_constraint_str(char *dst, size_t size, xbps_constraint_t *vc); */
+/* void xbps_constraint_free(xbps_constraint_t *vc); */
+/* bool xbps_constraint_allows(xbps_constraint_t *a, xbps_version_t *b); */
+/* bool xbps_constraint_allows_all(xbps_constraint_t *a, xbps_constraint_t *b); */
+/* bool xbps_constraint_allows_any(xbps_constraint_t *a, xbps_constraint_t *b); */
+/* xbps_constraint_t *xbps_constraint_diff(xbps_constraint_t *a, */
+/* 		xbps_constraint_t *b); */
+/* xbps_constraint_t *xbps_constraint_intersect(xbps_constraint_t *a, */
+/* 		xbps_constraint_t *b); */
+/* xbps_constraint_t *xbps_constraint_union(xbps_constraint_t *a, */
+/* 		xbps_constraint_t *b); */
 
 #ifdef __cplusplus
 }

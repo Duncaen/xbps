@@ -142,15 +142,19 @@ match_string_in_array(xbps_array_t array, const char *str, int mode)
 		} else if (mode == 3) {
 			/* match pkgpattern against pkgdep */
 			pkgdep = xbps_string_cstring_nocopy(obj);
+			fprintf(stderr, "pattern against dep\n");
 			if (xbps_pkgpattern_match(pkgdep, str)) {
 				found = true;
+				fprintf(stderr, "found oO\n");
 				break;
 			}
 		} else if (mode == 4) {
 			/* match pkgdep against pkgpattern */
 			pkgdep = xbps_string_cstring_nocopy(obj);
+			fprintf(stderr, "pkgd against pattern\n");
 			if (xbps_pkgpattern_match(str, pkgdep)) {
 				found = true;
+				fprintf(stderr, "found oO\n");
 				break;
 			}
 		}

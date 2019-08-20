@@ -266,6 +266,7 @@ dewey_cmp(const char *lhs, int op, const char *rhs)
 	return retval;
 }
 
+#if 0
 /*
  * Returns -1, 0 or 1 depending on if the version components of
  * pkg1 is less than, equal to or greater than pkg2. No comparison
@@ -281,6 +282,7 @@ xbps_cmpver(const char *pkg1, const char *pkg2)
 	else
 		return 0;
 }
+#endif
 
 /*
  * Perform dewey match on "pkg" against "pattern".
@@ -340,4 +342,3 @@ dewey_match(const char *pattern, const char *pkg)
 
 	return 0;
 }
-

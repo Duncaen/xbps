@@ -77,8 +77,53 @@ ATF_TC_BODY(util_test, tc)
 	ATF_CHECK_EQ(xbps_binpkg_pkgver("foo-1.0.x86_64"), NULL);
 }
 
+ATF_TC(pkgname_cpy_test);
+
+ATF_TC_HEAD(pkgname_cpy_test, tc)
+{
+	atf_tc_set_md_var(tc, "descr", "Test xbps_pkgname_cpy function");
+}
+
+ATF_TC_BODY(pkgname_cpy_test, tc)
+{
+	char buf[XBPS_MAXPKGNAME];
+
+#define CHECK(in, out) \
+		ATF_CHECK_EQ(xbps_pkgname_cpy(buf, in, sizeof buf), \
+				sizeof (out)-1); \
+		ATF_CHECK_STREQ(buf, out);
+
+	CHECK("font-adobe-100dpi-7.8_2", "font-adobe-100dpi");
+	CHECK("systemd-43_1", "systemd");
+	CHECK("font-adobe-100dpi-1.8_blah", "font-adobe-100dpi");
+	CHECK("python-e_dbus-1.0_1", "python-e_dbus");
+	CHECK("font-adobe-a", "font-adobe-a");
+	CHECK("font-adobe-1", "font-adobe-1");
+	CHECK("font-adobe-100dpi", "font-adobe-100dpi");
+	CHECK("font-adobe-100dpi-7.8", "font-adobe-100dpi-7.8");
+	CHECK("python-e_dbus", "python-e_dbus");
+	CHECK("fs-utils-v1", "fs-utils-v1");
+	CHECK("fs-utils-v_1", "fs-utils-v_1");
+	CHECK("systemd>=43", "systemd");
+	CHECK("systemd>43", "systemd");
+	CHECK("systemd<43", "systemd");
+	CHECK("systemd<=43", "systemd");
+	CHECK("systemd-[0-9]*", "systemd");
+	CHECK("systemd>4[3-9]?", "systemd");
+	CHECK("systemd<4_1?", "systemd");
+	#undef CHECK
+
+	/* check if truncated pkgnames return the required buffer length */
+	ATF_CHECK_EQ(xbps_pkgname_cpy(buf, "hello", 2), 5);
+	ATF_CHECK_STREQ(buf, "h");
+	ATF_CHECK_EQ(xbps_pkgname_cpy(buf, "hello-1_1", 2), 5);
+	ATF_CHECK_STREQ(buf, "h");
+}
+
+
 ATF_TP_ADD_TCS(tp)
 {
 	ATF_TP_ADD_TC(tp, util_test);
+	ATF_TP_ADD_TC(tp, pkgname_cpy_test);
 	return atf_no_error();
 }

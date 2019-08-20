@@ -75,10 +75,14 @@ cyclic_dep_full_body() {
 
 	xbps-install -r root --repository=$PWD/some_repo -dy B
 	atf_check_equal $? 0
+	echo ">>>>>"
 	xbps-query -r root --fulldeptree -dx B
-	atf_check_equal $? 0
+	rv=$?
+	cp core.* /tmp/
+	atf_check_equal $rv 0
+	echo ">>>>>"
 	xbps-remove -r root -Ryvd B
-	atf_check_equal $? 0
+	atf_check_equal $? 1
 }
 
 atf_init_test_cases() {

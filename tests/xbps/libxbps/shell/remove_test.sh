@@ -460,8 +460,11 @@ remove_with_revdeps_in_trans_recursive_body() {
 	cd ..
 	xbps-install -r root --repository=some_repo -yvd B
 	atf_check_equal $? 0
+	echo "wtf 1" >&2
 	xbps-remove -r root -Ryvd B
 	atf_check_equal $? 0
+	echo "wtf 2" >&2
+	xbps-query -r root -l >&2
 	out=$(xbps-query -r root -l|wc -l)
 	atf_check_equal $out 0
 }

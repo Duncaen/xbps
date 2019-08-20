@@ -92,6 +92,7 @@ incorrect_dep_dups_body() {
 	atf_check_equal $? 0
 
 	out=$(xbps-query -C empty.conf -r root --fulldeptree -x B)
+	xbps-query -C empty.conf -r root --fulldeptree -x B>&2
 	set -- $out
 	atf_check_equal $# 1
 	atf_check_equal "$1" "A-1.0_1"

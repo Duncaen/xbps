@@ -31,146 +31,116 @@
 
 #include "xbps_api_impl.h"
 
-struct item;
+#define FLAG_DONE  0x0001
+#define FLAG_CYCLE 0x0010
 
-struct depn {
-	struct depn *dnext;
-	struct item *item;
-};
+struct item;
 
 struct item {
 	struct item *hnext;
-	struct item *bnext;
-	struct depn *dbase;
-	char *pkgn;
+	struct item **deps;
+	size_t ndeps;
 	const char *pkgver;
+	size_t namelen;
 	xbps_array_t rdeps;
+	int flags;
 };
 
 #define ITHSIZE	1024
 #define ITHMASK	(ITHSIZE - 1)
 
 static struct item *ItemHash[ITHSIZE];
-static xbps_array_t result;
 
 static int
-itemhash(const char *pkgn)
+itemhash(const char *key, size_t len)
 {
 	int hv = 0xA1B5F342;
-	int i;
+	unsigned int i;
 
-	assert(pkgn);
+	assert(key);
+	assert(len > 0);
 
-	for (i = 0; pkgn[i]; ++i)
-		hv = (hv << 5) ^ (hv >> 23) ^ pkgn[i];
+	for (i = 0; i < len; ++i)
+		hv = (hv << 5) ^ (hv >> 23) ^ key[i];
 
 	return hv & ITHMASK;
 }
 
 static struct item *
-lookupItem(const char *pkgn)
+lookupItem(const char *key, size_t len)
 {
 	struct item *item;
 
-	assert(pkgn);
+	assert(key);
+	assert(len > 0);
 
-	for (item = ItemHash[itemhash(pkgn)]; item; item = item->hnext) {
-		if (strcmp(pkgn, item->pkgn) == 0)
+	for (item = ItemHash[itemhash(key, len)]; item; item = item->hnext) {
+		if (strncmp(key, item->pkgver, len) == 0)
 			return item;
 	}
 	return NULL;
 }
 
 static struct item *
-addItem(xbps_array_t rdeps, const char *pkgn)
+addItem(const char *pkgver, size_t namelen)
 {
 	struct item **itemp;
 	struct item *item = calloc(sizeof(*item), 1);
 
-	assert(pkgn);
-	assert(item);
+	if (item == NULL)
+		return NULL;
 
-	itemp = &ItemHash[itemhash(pkgn)];
+	assert(pkgver);
+	assert(namelen > 0);
+
+	itemp = &ItemHash[itemhash(pkgver, namelen)];
 	item->hnext = *itemp;
-	item->pkgn = strdup(pkgn);
-	assert(item->pkgn);
-	item->rdeps = xbps_array_copy(rdeps);
+	item->pkgver = pkgver;
+	item->namelen = namelen;
 	*itemp = item;
 
 	return item;
 }
 
-static void
-addDepn(struct item *item, struct item *xitem)
-{
-	struct depn *depn = calloc(sizeof(*depn), 1);
-
-	assert(item);
-	assert(xitem);
-
-	depn->item = item;
-	depn->dnext = xitem->dbase;
-	xitem->dbase = depn;
-}
-
-static void
-add_deps_recursive(struct item *item, bool first)
-{
-	struct depn *dep;
-	xbps_string_t str;
-
-	if (xbps_match_string_in_array(result, item->pkgver))
-		return;
-
-	for (dep = item->dbase; dep; dep = dep->dnext)
-		add_deps_recursive(dep->item, false);
-
-	if (first)
-		return;
-
-	str = xbps_string_create_cstring(item->pkgver);
-	assert(str);
-	xbps_array_add_first(result, str);
-	xbps_object_release(str);
-}
-
 /*
- * Recursively calculate all dependencies.
+ * Recursively add all dependencies to the hash table.
  */
 static struct item *
-ordered_depends(struct xbps_handle *xhp, xbps_dictionary_t pkgd, bool rpool,
-		size_t depth)
+collect_depends(struct xbps_handle *xhp, xbps_dictionary_t pkgd, bool rpool)
 {
+	char pkgn[XBPS_MAXPKGNAME];
 	xbps_array_t rdeps, provides;
-	xbps_string_t str;
 	struct item *item, *xitem;
 	const char *pkgver = NULL;
-	char *pkgn;
+	size_t pkgnlen;
 
 	assert(xhp);
 	assert(pkgd);
 
-	rdeps = xbps_dictionary_get(pkgd, "run_depends");
-	provides = xbps_dictionary_get(pkgd, "provides");
 	xbps_dictionary_get_cstring_nocopy(pkgd, "pkgver", &pkgver);
 
-	pkgn = xbps_pkg_name(pkgver);
-	assert(pkgn);
-	item = lookupItem(pkgn);
-	if (item) {
-		add_deps_recursive(item, depth == 0);
+	pkgnlen = xbps_pkgname_len(pkgver);
+	
+	if ((item = lookupItem(pkgver, pkgnlen)) ||
+	    !(item = addItem(pkgver, pkgnlen))) {
 		return item;
 	}
 
-	item = addItem(rdeps, pkgn);
-	item->pkgver = pkgver;
-	assert(item);
-	free(pkgn);
+	item->flags |= FLAG_CYCLE;
 
-	for (unsigned int i = 0; i < xbps_array_count(rdeps); i++) {
+	rdeps = xbps_dictionary_get(pkgd, "run_depends");
+	item->ndeps = xbps_array_count(rdeps);
+	if (item->ndeps) {
+		item->deps = calloc(item->ndeps, sizeof (struct item *));
+		if (item->deps == NULL)
+			return NULL;
+	} else {
+		item->deps = NULL;
+	}
+
+	for (unsigned int i = 0; i < item->ndeps; i++) {
 		xbps_dictionary_t curpkgd;
 		const char *curdep = NULL;
-		char *curdepname;
 
 		xbps_array_get_cstring_nocopy(rdeps, i, &curdep);
 		if (rpool) {
@@ -189,50 +159,166 @@ ordered_depends(struct xbps_handle *xhp, xbps_dictionary_t pkgd, bool rpool,
 			errno = ENODEV;
 			return NULL;
 		}
-		if ((curdepname = xbps_pkgpattern_name(curdep)) == NULL)
-			curdepname = xbps_pkg_name(curdep);
 
-		assert(curdepname);
-
-		if (provides && xbps_match_pkgname_in_array(provides, curdepname)) {
+		pkgnlen = xbps_pkgname_cpy(pkgn, curdep, sizeof pkgn);
+		if (pkgnlen >= sizeof pkgn) {
+			errno = ENOMEM;
+			return NULL;
+		}
+		
+		if ((provides = xbps_dictionary_get(pkgd, "provides")) &&
+		    xbps_match_pkgname_in_array(provides, pkgn)) {
 			xbps_dbg_printf(xhp, "%s: ignoring dependency %s "
 			    "already in provides\n", pkgver, curdep);
-			free(curdepname);
 			continue;
 		}
-		xitem = lookupItem(curdepname);
+		xitem = lookupItem(curdep, pkgnlen);
 		if (xitem) {
-			add_deps_recursive(xitem, false);
+			item->deps[i] = xitem;
 			continue;
 		}
-		xitem = ordered_depends(xhp, curpkgd, rpool, depth+1);
+		xitem = collect_depends(xhp, curpkgd, rpool);
 		if (xitem == NULL) {
 			/* package depends on missing dependencies */
 			xbps_dbg_printf(xhp, "%s: missing dependency '%s'\n", pkgver, curdep);
 			errno = ENODEV;
 			return NULL;
 		}
-		assert(xitem);
-		addDepn(item, xitem);
-		free(curdepname);
+		item->deps[i] = xitem;
 	}
-	/* all deps were processed, add item to head */
-	if (depth > 0 && !xbps_match_string_in_array(result, item->pkgver)) {
-		str = xbps_string_create_cstring(item->pkgver);
-		assert(str);
-		xbps_array_add_first(result, str);
-		xbps_object_release(str);
-	}
+	item->flags |= ~FLAG_CYCLE;
 	return item;
+}
+
+static bool
+sort_recursive(struct xbps_handle *xhp UNUSED, struct item *item, xbps_array_t result)
+{
+	size_t done = 0;
+	bool cycle = item->flags & FLAG_CYCLE;
+
+	fprintf(stderr, ">>>> sort recursive: %s ndeps=%zu\n", item->pkgver,
+	    item->ndeps);
+	if (cycle) {
+		fprintf(stderr, ">>>> breaking cycle: %s\n", item->pkgver);
+		/* xbps_array_add_cstring_nocopy(result, item->pkgver); */
+		/* item->flags |= FLAG_DONE; */
+		/* return true; */
+		return false;
+	}
+
+	item->flags |= FLAG_CYCLE;
+	for (size_t i = 0; i < item->ndeps; i++) {
+		struct item *xitem = item->deps[i];
+		if (xitem == NULL || xitem->flags & FLAG_DONE ||
+		    sort_recursive(xhp, xitem, result))
+			done++;
+	}
+	item->flags |= ~FLAG_CYCLE;
+
+	fprintf(stderr, ">>>> %s: done=%zu ndeps=%zu\n", item->pkgver, done, 
+	    item->ndeps);
+
+	if (done == item->ndeps) {
+		fprintf(stderr, ">>>> done: %s\n", item->pkgver);
+		xbps_array_add_cstring_nocopy(result, item->pkgver);
+		item->flags |= FLAG_DONE;
+		return true;
+	}
+	/* if (cycle && done+1 == rdeps) { */
+	/* 	fprintf(stderr, ">>>> breaking cycle\n"); */
+	/* 	xbps_array_add_cstring_nocopy(result, item->pkgver); */
+	/* 	item->flags |= FLAG_DONE; */
+	/* 	return true; */
+	/* } */
+	return false;
+}
+
+/*
+ * Recursively add dependencies to the todo list,
+ * and add dependencies without further dependencies
+ * to the result.
+ */
+static bool
+collect_todo(struct xbps_handle *xhp UNUSED, struct item *item, xbps_array_t todo, xbps_array_t result)
+{
+	if (item->flags & FLAG_CYCLE)
+		return true;
+
+	item->flags &= FLAG_CYCLE;
+	for (size_t i = 0; i < item->ndeps; i++) {
+		struct item *xitem = item->deps[i];
+		if (xitem == NULL)
+			continue;
+		if (xbps_match_string_in_array(result, xitem->pkgver) ||
+		    xbps_match_string_in_array(todo, xitem->pkgver)) {
+			fprintf(stderr, ">>> skipping: %s\n", xitem->pkgver);
+			continue;
+		}
+		if (xitem->ndeps == 0) {
+			if (!xbps_array_add_cstring_nocopy(result, xitem->pkgver))
+				return false;
+			fprintf(stderr, ">>> added result: %s\n", xitem->pkgver);
+			xitem->flags = FLAG_DONE;
+		} else {
+			if (!collect_todo(xhp, xitem, todo, result))
+				return false;
+			if (!xbps_array_add_cstring_nocopy(todo, xitem->pkgver))
+				return false;
+			fprintf(stderr, ">>> added todo: %s\n", xitem->pkgver);
+			xitem->flags = 0;
+		}
+	}
+	item->flags |= FLAG_CYCLE;
+	return true;
+}
+
+static xbps_array_t
+ordered_depends(struct xbps_handle *xhp UNUSED, struct item *item)
+{
+	struct item *xitem;
+	xbps_array_t result, todo;
+
+	assert(item);
+	/* head is already done */
+	item->flags = FLAG_DONE;
+
+	result = xbps_array_create();
+	assert(result);
+	todo = xbps_array_create();
+	assert(todo);
+
+	if (!collect_todo(xhp, item, todo, result))
+		return NULL;
+
+	while (xbps_array_count(todo) > 0) {
+		for (unsigned int i = 0; i < xbps_array_count(todo); i++) {
+			const char *pkgn;
+
+			xbps_array_get_cstring_nocopy(todo, i, &pkgn);
+			xitem = lookupItem(pkgn, strlen(pkgn));
+			assert(xitem);
+			fprintf(stderr, ">>> TODO: %s\n", pkgn);
+
+			if (xitem->flags & FLAG_DONE || sort_recursive(xhp, xitem, result)) {
+				xbps_array_remove(todo, i);
+				break;
+			}
+		}
+	}
+	
+	for (unsigned int i = 0; i < xbps_array_count(result); i++) {
+		const char *pkgver;
+		xbps_array_get_cstring_nocopy(result, i, &pkgver);
+		fprintf(stderr, ">>>>> %s\n", pkgver);
+	}
+	return result;
 }
 
 xbps_array_t HIDDEN
 xbps_get_pkg_fulldeptree(struct xbps_handle *xhp, const char *pkg, bool rpool)
 {
 	xbps_dictionary_t pkgd;
-
-	result = xbps_array_create();
-	assert(result);
+	struct item *item;
 
 	if (rpool) {
 		if (((pkgd = xbps_rpool_get_pkg(xhp, pkg)) == NULL) &&
@@ -243,8 +329,8 @@ xbps_get_pkg_fulldeptree(struct xbps_handle *xhp, const char *pkg, bool rpool)
 		    ((pkgd = xbps_pkgdb_get_virtualpkg(xhp, pkg)) == NULL))
 			return NULL;
 	}
-	if (ordered_depends(xhp, pkgd, rpool, 0) == NULL)
+	if ((item = collect_depends(xhp, pkgd, rpool)) == NULL)
 		return NULL;
 
-	return result;
+	return ordered_depends(xhp, item);
 }
