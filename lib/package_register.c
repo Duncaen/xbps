@@ -116,7 +116,6 @@ xbps_register_pkg(struct xbps_handle *xhp, xbps_dictionary_t pkgrd)
 	 * Remove unneeded objs from pkg dictionary.
 	 */
 	xbps_dictionary_remove(pkgd, "download");
-	xbps_dictionary_remove(pkgd, "remove-and-update");
 	xbps_dictionary_remove(pkgd, "transaction");
 	xbps_dictionary_remove(pkgd, "skip-obsoletes");
 	xbps_dictionary_remove(pkgd, "pkgname");

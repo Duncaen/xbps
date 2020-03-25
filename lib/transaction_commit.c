@@ -148,9 +148,7 @@ xbps_transaction_commit(struct xbps_handle *xhp)
 			/*
 			 * Remove package.
 			 */
-			update = false;
-			xbps_dictionary_get_bool(obj, "remove-and-update", &update);
-			rv = xbps_remove_pkg(xhp, pkgver, update);
+			rv = xbps_remove_pkg(xhp, pkgver, false);
 			if (rv != 0) {
 				xbps_dbg_printf(xhp, "[trans] failed to "
 				    "remove %s: %s\n", pkgver, strerror(rv));

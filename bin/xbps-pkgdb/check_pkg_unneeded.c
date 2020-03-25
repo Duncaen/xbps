@@ -51,7 +51,6 @@ check_pkg_unneeded(struct xbps_handle *xhp UNUSED, const char *pkgname, void *ar
 	char *buf;
 
 	xbps_dictionary_remove(pkgd, "download");
-	xbps_dictionary_remove(pkgd, "remove-and-update");
 	xbps_dictionary_remove(pkgd, "transaction");
 	xbps_dictionary_remove(pkgd, "skip-obsoletes");
 	xbps_dictionary_remove(pkgd, "packaged-with");
