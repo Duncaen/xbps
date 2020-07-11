@@ -149,7 +149,9 @@ void HIDDEN xbps_set_cb_fetch(struct xbps_handle *, off_t, off_t, off_t,
 int HIDDEN xbps_set_cb_state(struct xbps_handle *, xbps_state_t, int,
 		const char *, const char *, ...);
 int HIDDEN xbps_unpack_binary_pkg(struct xbps_handle *, xbps_dictionary_t);
+int HIDDEN xbps_remove_pre(struct xbps_handle *, const char *, bool);
 int HIDDEN xbps_remove_pkg(struct xbps_handle *, const char *, bool);
+int HIDDEN xbps_remove_post(struct xbps_handle *, const char *);
 int HIDDEN xbps_register_pkg(struct xbps_handle *, xbps_dictionary_t);
 char HIDDEN *xbps_archive_get_file(struct archive *, struct archive_entry *);
 xbps_dictionary_t HIDDEN xbps_archive_get_dictionary(struct archive *,

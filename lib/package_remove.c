@@ -107,23 +107,69 @@ remove_pkg_files(struct xbps_handle *xhp,
 }
 
 int HIDDEN
-xbps_remove_pkg(struct xbps_handle *xhp, const char *pkgver, bool update)
+xbps_remove_pre(struct xbps_handle *xhp, const char *pkgver, bool update)
 {
-	xbps_dictionary_t pkgd = NULL, obsd = NULL;
-	xbps_array_t obsoletes = NULL;
-	char pkgname[XBPS_NAME_SIZE], metafile[PATH_MAX];
-	int rv = 0;
+	char pkgname[XBPS_NAME_SIZE];
+	xbps_dictionary_t pkgd;
 	pkg_state_t state = 0;
-	uid_t euid;
+	int rv = 0;
 
 	assert(xhp);
 	assert(pkgver);
 
-	if (!xbps_pkg_name(pkgname, sizeof(pkgname), pkgver)) {
+	if (!xbps_pkg_name(pkgname, sizeof(pkgname), pkgver))
 		abort();
+
+	if ((pkgd = xbps_pkgdb_get_pkg(xhp, pkgname)) == NULL) {
+		rv = errno;
+		xbps_dbg_printf(xhp, "[remove] cannot find %s in pkgdb: %s\n",
+		    pkgver, strerror(rv));
+		goto out;
+	}
+	if ((rv = xbps_pkg_state_dictionary(pkgd, &state)) != 0) {
+		xbps_dbg_printf(xhp, "[remove] cannot find %s in pkgdb: %s\n",
+		    pkgver, strerror(rv));
+		goto out;
 	}
 
-	euid = geteuid();
+	if (!update)
+		xbps_set_cb_state(xhp, XBPS_STATE_REMOVE, 0, pkgver, NULL);
+
+	/*
+	 * Run the pre remove action and show pre-remove message if exists.
+	 */
+	rv = xbps_pkg_exec_script(xhp, pkgd, "remove-script", "pre", update);
+	if (rv != 0) {
+		xbps_set_cb_state(xhp, XBPS_STATE_REMOVE_FAIL,
+		    errno, pkgver,
+		    "%s: [remove] REMOVE script failed to "
+		    "execute pre ACTION: %s",
+		    pkgver, strerror(rv));
+		goto out;
+	}
+
+out:
+	if (rv != 0) {
+		xbps_set_cb_state(xhp, XBPS_STATE_REMOVE_FAIL, rv, pkgver,
+		    "%s: failed to remove package: %s", pkgver, strerror(rv));
+	}
+	return rv;
+}
+
+int HIDDEN
+xbps_remove_pkg(struct xbps_handle *xhp, const char *pkgver, bool update)
+{
+	xbps_dictionary_t pkgd = NULL, obsd = NULL;
+	xbps_array_t obsoletes = NULL;
+	char pkgname[XBPS_NAME_SIZE];
+	int rv = 0;
+	pkg_state_t state = 0;
+
+	assert(xhp);
+	assert(pkgver);
+
+	if (!xbps_pkg_name(pkgname, sizeof(pkgname), pkgver))
+		abort();
 
 	if ((pkgd = xbps_pkgdb_get_pkg(xhp, pkgname)) == NULL) {
 		rv = errno;
@@ -138,33 +184,11 @@ xbps_remove_pkg(struct xbps_handle *xhp, const char *pkgver, bool update)
 	}
 	xbps_dbg_printf(xhp, "attempting to remove %s state %d\n", pkgver, state);
 
-	if (!update)
-		xbps_set_cb_state(xhp, XBPS_STATE_REMOVE, 0, pkgver, NULL);
-
-	if (chdir(xhp->rootdir) == -1) {
-		rv = errno;
-		xbps_set_cb_state(xhp, XBPS_STATE_REMOVE_FAIL,
-		    rv, pkgver,
-		   "%s: [remove] failed to chdir to rootdir `%s': %s",
-		    pkgver, xhp->rootdir, strerror(rv));
-		goto out;
-	}
-
-	/* If package was "half-removed", remove it fully. */
+	/* If package was "half-removed", files already have been removed
+	 * it will be fully removed when xbps_remove_post is called. */
 	if (state == XBPS_PKG_STATE_HALF_REMOVED)
-		goto purge;
-	/*
-	 * Run the pre remove action and show pre-remove message if exists.
-	 */
-	rv = xbps_pkg_exec_script(xhp, pkgd, "remove-script", "pre", update);
-	if (rv != 0) {
-		xbps_set_cb_state(xhp, XBPS_STATE_REMOVE_FAIL,
-		    errno, pkgver,
-		    "%s: [remove] REMOVE script failed to "
-		    "execute pre ACTION: %s",
-		    pkgver, strerror(rv));
-		goto out;
-	}
+		return 0;
+
 	/* show remove-msg if exists */
 	if ((rv = xbps_cb_message(xhp, pkgd, "remove-msg")) != 0)
 		goto out;
@@ -181,9 +205,8 @@ xbps_remove_pkg(struct xbps_handle *xhp, const char *pkgver, bool update)
 	 * pre-remove action target and we are done. Its files will be
 	 * overwritten later in unpack phase.
 	 */
-	if (update) {
+	if (update)
 		return 0;
-	}
 
 	if (xbps_dictionary_get_dict(xhp->transd, "obsolete_files", &obsd))
 		obsoletes = xbps_dictionary_get(obsd, pkgname);
@@ -194,6 +217,7 @@ xbps_remove_pkg(struct xbps_handle *xhp, const char *pkgver, bool update)
 		 * 	1- check if user has enough perms to remove all entries
 		 * 	2- perform removal
 		 */
+		uid_t euid = geteuid();
 		if (check_remove_pkg_files(xhp, obsoletes, pkgver, euid)) {
 			rv = EPERM;
 			goto out;
@@ -201,6 +225,48 @@ xbps_remove_pkg(struct xbps_handle *xhp, const char *pkgver, bool update)
 		/* Remove links */
 		if ((rv = remove_pkg_files(xhp, obsoletes, pkgver)) != 0)
 			goto out;
+	}
+
+	/*
+	 * Set package state to "half-removed".
+	 */
+	rv = xbps_set_pkg_state_dictionary(pkgd,
+	     XBPS_PKG_STATE_HALF_REMOVED);
+	if (rv != 0) {
+		xbps_set_cb_state(xhp, XBPS_STATE_REMOVE_FAIL,
+		    rv, pkgver,
+		    "%s: [remove] failed to set state to half-removed: %s",
+		    pkgver, strerror(rv));
+		goto out;
+	}
+
+out:
+	if (rv != 0) {
+		xbps_set_cb_state(xhp, XBPS_STATE_REMOVE_FAIL, rv, pkgver,
+		    "%s: failed to remove package: %s", pkgver, strerror(rv));
+	}
+	return rv;
+}
+
+int HIDDEN
+xbps_remove_post(struct xbps_handle *xhp, const char *pkgver)
+{
+	xbps_dictionary_t pkgd = NULL;
+	char pkgname[XBPS_NAME_SIZE];
+	char metafile[PATH_MAX];
+	int rv = 0;
+
+	assert(xhp);
+	assert(pkgver);
+
+	if (!xbps_pkg_name(pkgname, sizeof(pkgname), pkgver))
+		abort();
+
+	if ((pkgd = xbps_pkgdb_get_pkg(xhp, pkgname)) == NULL) {
+		rv = errno;
+		xbps_dbg_printf(xhp, "[remove] cannot find %s in pkgdb: %s\n",
+		    pkgver, strerror(rv));
+		goto out;
 	}
 
 	/*
@@ -215,20 +281,7 @@ xbps_remove_pkg(struct xbps_handle *xhp, const char *pkgver, bool update)
 		    "post ACTION: %s", pkgver, strerror(rv));
 		goto out;
 	}
-	/*
-	 * Set package state to "half-removed".
-	 */
-	rv = xbps_set_pkg_state_dictionary(pkgd,
-	     XBPS_PKG_STATE_HALF_REMOVED);
-	if (rv != 0) {
-		xbps_set_cb_state(xhp, XBPS_STATE_REMOVE_FAIL,
-		    rv, pkgver,
-		    "%s: [remove] failed to set state to half-removed: %s",
-		    pkgver, strerror(rv));
-		goto out;
-	}
 
-purge:
 	/*
 	 * Execute the purge REMOVE action if file exists.
 	 */
@@ -256,8 +309,8 @@ purge:
 	 * Unregister package from pkgdb.
 	 */
 	xbps_dbg_printf(xhp, "[remove] unregister %s returned %d\n", pkgver, rv);
-	xbps_set_cb_state(xhp, XBPS_STATE_REMOVE_DONE, 0, pkgver, NULL);
 	xbps_dictionary_remove(xhp->pkgdb, pkgname);
+
 out:
 	if (rv != 0) {
 		xbps_set_cb_state(xhp, XBPS_STATE_REMOVE_FAIL, rv, pkgver,

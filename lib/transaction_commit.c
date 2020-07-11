@@ -140,6 +140,33 @@ xbps_transaction_commit(struct xbps_handle *xhp)
 		    xhp->rootdir, strerror(errno));
 		goto out;
 	}
+
+	/*
+	 * Run pre remove scripts.
+	 */
+	while ((obj = xbps_object_iterator_next(iter)) != NULL) {
+		xbps_dictionary_get_cstring_nocopy(obj, "pkgver", &pkgver);
+
+		/* only run pre-remove for package removals and updates */
+		ttype = xbps_transaction_pkg_type(obj);
+		if (ttype != XBPS_TRANS_REMOVE || ttype != XBPS_TRANS_UPDATE)
+			continue;
+
+		rv = xbps_remove_pkg(xhp, pkgver, false);
+		if (rv != 0) {
+			xbps_dbg_printf(xhp, "[trans] failed to "
+					"remove %s: %s\n", pkgver, strerror(rv));
+			goto out;
+		}
+	}
+
+	/*
+	 * Extract/Remove package files.
+	 *
+	 * XXX: optimally errors shouldn't abort the transaction
+	 * in a half updated state.
+	 */
+	xbps_object_iterator_reset(iter);
 	while ((obj = xbps_object_iterator_next(iter)) != NULL) {
 		xbps_dictionary_get_cstring_nocopy(obj, "pkgver", &pkgver);
 
@@ -204,6 +231,7 @@ xbps_transaction_commit(struct xbps_handle *xhp)
 			goto out;
 		}
 	}
+
 	/* if there are no packages to install or update we are done */
 	if (!xbps_dictionary_get(xhp->transd, "total-update-pkgs") &&
 	    !xbps_dictionary_get(xhp->transd, "total-install-pkgs"))
@@ -217,42 +245,55 @@ xbps_transaction_commit(struct xbps_handle *xhp)
 		goto out;
 	}
 
-	xbps_object_iterator_reset(iter);
 	/* Force a pkgdb write for all unpacked pkgs in transaction */
 	if ((rv = xbps_pkgdb_update(xhp, true, true)) != 0)
 		goto out;
 
-	/*
-	 * Configure all unpacked packages.
-	 */
 	xbps_set_cb_state(xhp, XBPS_STATE_TRANS_CONFIGURE, 0, NULL, NULL);
 
+	/*
+	 * - Configure all unpacked packages.
+	 * - Run post remove scriptlets for removed packages.
+	 */
+	xbps_object_iterator_reset(iter);
 	while ((obj = xbps_object_iterator_next(iter)) != NULL) {
 		xbps_dictionary_get_cstring_nocopy(obj, "pkgver", &pkgver);
 		ttype = xbps_transaction_pkg_type(obj);
-		if (ttype == XBPS_TRANS_REMOVE || ttype == XBPS_TRANS_HOLD) {
-			xbps_dbg_printf(xhp, "%s: skipping configuration for "
-			    "%s: %d\n", __func__, pkgver, ttype);
-			continue;
-		}
-		update = (ttype == XBPS_TRANS_UPDATE);
 
-		rv = xbps_configure_pkg(xhp, pkgver, false, update);
-		if (rv != 0) {
-			xbps_dbg_printf(xhp, "%s: configure failed for "
-			    "%s: %s\n", __func__, pkgver, strerror(rv));
-			goto out;
-		}
-		/*
-		 * Notify client callback when a package has been
-		 * installed or updated.
-		 */
-		if (update) {
-			xbps_set_cb_state(xhp, XBPS_STATE_UPDATE_DONE, 0,
+		/* XXX: hold packages might need to be reconfigued? */
+		if (ttype == XBPS_TRANS_HOLD)
+			continue;
+
+		if (ttype == XBPS_TRANS_REMOVE) {
+			rv = xbps_remove_post(xhp, pkgver);
+			if (rv != 0) {
+				xbps_dbg_printf(xhp, "%s: remove failed for "
+					"%s: %s\n", __func__, pkgver, strerror(rv));
+				goto out;
+			}
+			/*
+			 * Notify client callback when a package has been
+			 * fully removed.
+			 */
+			xbps_set_cb_state(xhp, XBPS_STATE_REMOVE_DONE, 0,
 			    pkgver, NULL);
 		} else {
-			xbps_set_cb_state(xhp, XBPS_STATE_INSTALL_DONE, 0,
-			    pkgver, NULL);
+			update = (ttype == XBPS_TRANS_UPDATE);
+
+			rv = xbps_configure_pkg(xhp, pkgver, false, update);
+			if (rv != 0) {
+				xbps_dbg_printf(xhp, "%s: configure failed for "
+					"%s: %s\n", __func__, pkgver, strerror(rv));
+				goto out;
+			}
+
+			/*
+			 * Notify client callback when a package has been
+			 * installed or updated.
+			 */
+			xbps_set_cb_state(xhp,
+			    update ? XBPS_STATE_UPDATE_DONE : XBPS_STATE_INSTALL_DONE,
+			    0, pkgver, NULL);
 		}
 	}
 
