@@ -94,26 +94,31 @@ check_pkg_files(struct xbps_handle *xhp, const char *pkgname, void *arg)
 			return -1;
 
 		while ((obj = xbps_object_iterator_next(iter))) {
+			bool noextract = false;
 			xbps_dictionary_get_cstring_nocopy(obj, "file", &file);
-			/* skip noextract files */
-			if (xhp->noextract && xbps_patterns_match(xhp->noextract, file))
-				continue;
+			noextract = xhp->noextract && xbps_patterns_match(xhp->noextract, file);
 			path = xbps_xasprintf("%s/%s", xhp->rootdir, file);
 			xbps_dictionary_get_cstring_nocopy(obj,
 				"sha256", &sha256);
 			rv = xbps_file_sha256_check(path, sha256);
 			switch (rv) {
 			case 0:
-				if (check_file_mtime(obj, pkgname, path)) {
+				if (noextract) {
+					xbps_warn_printf(
+						"%s: existing noextract file %s\n",
+						pkgname, file);
+				} else if (check_file_mtime(obj, pkgname, path)) {
 					test_broken = true;
 				}
 				free(path);
 				break;
 			case ENOENT:
-				xbps_error_printf("%s: unexistent file %s.\n",
-				    pkgname, file);
+				if (!noextract) {
+					xbps_error_printf("%s: unexistent file %s.\n",
+						pkgname, file);
+					test_broken = true;
+				}
 				free(path);
-				test_broken = true;
 				break;
 			case ERANGE:
 				mutable = false;
@@ -152,22 +157,28 @@ check_pkg_files(struct xbps_handle *xhp, const char *pkgname, void *arg)
 			return -1;
 
 		while ((obj = xbps_object_iterator_next(iter))) {
+			bool noextract = false;
 			xbps_dictionary_get_cstring_nocopy(obj, "file", &file);
-			/* skip noextract files */
-			if (xhp->noextract && xbps_patterns_match(xhp->noextract, file))
-				continue;
+			noextract = xhp->noextract && xbps_patterns_match(xhp->noextract, file);
 			path = xbps_xasprintf("%s/%s", xhp->rootdir, file);
 			if (access(path, R_OK) == -1) {
 				if (errno == ENOENT) {
-					xbps_error_printf(
-					    "%s: unexistent file %s\n",
-					    pkgname, file);
-					test_broken = true;
-				} else
+					if (!noextract) {
+						xbps_error_printf(
+							"%s: unexistent file %s\n",
+							pkgname, file);
+						test_broken = true;
+					}
+				} else {
 					xbps_error_printf(
 					    "%s: can't check `%s' (%s)\n",
 					    pkgname, file,
 					    strerror(errno));
+				}
+			} else if (noextract) {
+				xbps_warn_printf(
+					"%s: existing noextract file %s\n",
+					pkgname, file);
 			}
 			free(path);
 		}
