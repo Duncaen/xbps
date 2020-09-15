@@ -83,7 +83,7 @@ check_pkg_files(struct xbps_handle *xhp, const char *pkgname, void *arg)
 	xbps_object_iterator_t iter;
 	xbps_dictionary_t pkg_filesd = arg;
 	const char *file = NULL, *sha256 = NULL;
-	char *path;
+	char path[PATH_MAX];
 	bool mutable, test_broken = false;
 	int rv = 0, errors = 0;
 
@@ -97,7 +97,8 @@ check_pkg_files(struct xbps_handle *xhp, const char *pkgname, void *arg)
 			bool noextract = false;
 			xbps_dictionary_get_cstring_nocopy(obj, "file", &file);
 			noextract = xhp->noextract && xbps_patterns_match(xhp->noextract, file);
-			path = xbps_xasprintf("%s/%s", xhp->rootdir, file);
+			if (xbps_path_join(path, sizeof path, xhp->rootdir, file, (char *)NULL) == -1)
+				return -1;
 			xbps_dictionary_get_cstring_nocopy(obj,
 				"sha256", &sha256);
 			rv = xbps_file_sha256_check(path, sha256);
@@ -110,7 +111,6 @@ check_pkg_files(struct xbps_handle *xhp, const char *pkgname, void *arg)
 				} else if (check_file_mtime(obj, pkgname, path)) {
 					test_broken = true;
 				}
-				free(path);
 				break;
 			case ENOENT:
 				if (!noextract) {
@@ -118,7 +118,6 @@ check_pkg_files(struct xbps_handle *xhp, const char *pkgname, void *arg)
 						pkgname, file);
 					test_broken = true;
 				}
-				free(path);
 				break;
 			case ERANGE:
 				mutable = false;
@@ -129,13 +128,11 @@ check_pkg_files(struct xbps_handle *xhp, const char *pkgname, void *arg)
 					    "for %s.\n", pkgname, file);
 					test_broken = true;
 				}
-				free(path);
 				break;
 			default:
 				xbps_error_printf(
 				    "%s: can't check `%s' (%s)\n",
 				    pkgname, file, strerror(rv));
-				free(path);
 				break;
 			}
                 }
@@ -160,7 +157,8 @@ check_pkg_files(struct xbps_handle *xhp, const char *pkgname, void *arg)
 			bool noextract = false;
 			xbps_dictionary_get_cstring_nocopy(obj, "file", &file);
 			noextract = xhp->noextract && xbps_patterns_match(xhp->noextract, file);
-			path = xbps_xasprintf("%s/%s", xhp->rootdir, file);
+			if (xbps_path_join(path, sizeof path, xhp->rootdir, file, (char *)NULL) == -1)
+				return -1;
 			if (access(path, R_OK) == -1) {
 				if (errno == ENOENT) {
 					if (!noextract) {
@@ -180,7 +178,6 @@ check_pkg_files(struct xbps_handle *xhp, const char *pkgname, void *arg)
 					"%s: existing noextract file %s\n",
 					pkgname, file);
 			}
-			free(path);
 		}
 		xbps_object_iterator_release(iter);
 	}

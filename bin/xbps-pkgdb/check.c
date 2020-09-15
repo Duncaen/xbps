@@ -74,7 +74,7 @@ check_pkg_integrity(struct xbps_handle *xhp,
 {
 	xbps_dictionary_t opkgd, filesd;
 	const char *sha256;
-	char *buf;
+	char buf[PATH_MAX];
 	int rv = 0, errors = 0;
 
 	filesd = opkgd = NULL;
@@ -92,18 +92,17 @@ check_pkg_integrity(struct xbps_handle *xhp,
 	 * Check pkg files metadata signature.
 	 */
 	if (xbps_dictionary_get_cstring_nocopy(opkgd, "metafile-sha256", &sha256)) {
-		buf = xbps_xasprintf("%s/.%s-files.plist",
+		int len = snprintf(buf, sizeof buf, "%s/.%s-files.plist",
 		    xhp->metadir, pkgname);
-		assert(buf);
+		if (len < 0 || len >= PATH_MAX)
+			return -1;
 		filesd = xbps_plist_dictionary_from_file(xhp, buf);
 		if (filesd == NULL) {
 			fprintf(stderr, "%s: cannot read %s, ignoring...\n",
 			    pkgname, buf);
-			free(buf);
 			return -1;
 		}
 		rv = xbps_file_sha256_check(buf, sha256);
-		free(buf);
 		if (rv == ENOENT) {
 			xbps_dictionary_remove(opkgd, "metafile-sha256");
 			fprintf(stderr, "%s: unexistent metafile, "

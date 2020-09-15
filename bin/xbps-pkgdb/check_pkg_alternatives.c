@@ -1,6 +1,6 @@
 /*-
  * Copyright (c) 2015 Juan Romero Pardines.
- * Copyright (c) 2019 Duncan Overbruck <mail@duncano.de>.
+ * Copyright (c) 2020 Duncan Overbruck <mail@duncano.de>.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -46,107 +46,83 @@
  * returns 0 if test ran successfully, 1 otherwise and -1 on error.
  */
 
-static const char *
-normpath(char *path)
+static ssize_t
+root_readlink(struct xbps_handle *xhp, const char *path, char *buf, size_t sz)
 {
-	char *seg, *p;
-
-	for (p = path, seg = NULL; *p; p++) {
-		if (strncmp(p, "/../", 4) == 0 || strncmp(p, "/..", 4) == 0) {
-			memmove(seg ? seg : p, p+3, strlen(p+3) + 1);
-			return normpath(path);
-		} else if (strncmp(p, "/./", 3) == 0 || strncmp(p, "/.", 3) == 0) {
-			memmove(p, p+2, strlen(p+2) + 1);
-		} else if (strncmp(p, "//", 2) == 0 || strncmp(p, "/", 2) == 0) {
-			memmove(p, p+1, strlen(p+1) + 1);
-		}
-		if (*p == '/')
-			seg = p;
-	}
-	return path;
-}
-
-static char *
-relpath(char *from, char *to)
-{
-	int up;
-	char *p = to, *rel;
-
-	assert(from[0] == '/');
-	assert(to[0] == '/');
-	normpath(from);
-	normpath(to);
-
-	for (; *from == *to && *to; from++, to++) {
-		if (*to == '/')
-			p = to;
-	}
-
-	for (up = -1, from--; from && *from; from = strchr(from + 1, '/'), up++);
-
-	rel = calloc(3 * up + strlen(p), sizeof(char));
-
-	while (up--)
-		strcat(rel, "../");
-	if (*p)
-		strcat(rel, p+1);
-	return rel;
+	char tmp[PATH_MAX];
+	if (xbps_path_join(tmp, sizeof tmp, xhp->rootdir, path, (char *)NULL) == -1)
+		return -1;
+	return readlink(tmp, buf, sz);
 }
 
 static int
-check_symlinks(struct xbps_handle *xhp, const char *pkgname, xbps_array_t a,
+check_symlinks(struct xbps_handle *xhp UNUSED, const char *pkgname, xbps_array_t a,
 	const char *grname)
 {
 	int rv = 0;
 	ssize_t l;
-	unsigned int i, n;
-	char *alternative, *tok1, *tok2, *linkpath, *target, *dir, *p;
-	char path[PATH_MAX];
+	unsigned int i;
+	char *alternative, *linkpath, *target;
+	char path[PATH_MAX], buf[PATH_MAX], buf2[PATH_MAX];
 
-	n = xbps_array_count(a);
-
-	for (i = 0; i < n; i++) {
+	for (i = 0; i < xbps_array_count(a); i++) {
 		alternative = xbps_string_cstring(xbps_array_get(a, i));
 
-		if (!(tok1 = strtok(alternative, ":")) ||
-		    !(tok2 = strtok(NULL, ":"))) {
+		/* split alternative into linkpath:target */
+		linkpath = alternative;
+		if ((target = strchr(alternative, ':')) == NULL) {
+			xbps_error_printf("%s: invalid alternative %s.\n",
+			    pkgname, alternative);
 			free(alternative);
-			return -1;
+			continue;
+		}
+		*target++ = '\0';
+
+		/* add target directory to relative linkpath */
+		if (*linkpath != '/') {
+			char *dir;
+			char *tmp = strdup(target);
+			if (tmp == NULL) {
+				xbps_error_printf("%s: strdup: %s\n",
+				    pkgname, strerror(errno));
+				free(alternative);
+				return -1;
+			}
+			dir = dirname(tmp);
+			if (xbps_path_join(buf, sizeof buf, dir, linkpath,
+			    (char *)NULL) == -1) {
+				xbps_error_printf("%s: xbps_path_join: %s\n",
+				    pkgname, strerror(errno));
+				free(tmp);
+				free(alternative);
+				return -1;
+			}
+			free(tmp);
+			linkpath = buf;
 		}
 
-		target = strdup(tok2);
-		dir = dirname(tok2);
-
-		/* add target dir to relative links */
-		if (tok1[0] != '/')
-			linkpath = xbps_xasprintf("%s/%s/%s", xhp->rootdir, dir, tok1);
-		else
-			linkpath = xbps_xasprintf("%s/%s", xhp->rootdir, tok1);
-
-		if (target[0] == '/') {
-			p = relpath(linkpath + strlen(xhp->rootdir), target);
-			free(target);
-			target = p;
+		/* make target relative */
+		if (*target == '/') {
+			if (xbps_path_rel(buf2, sizeof buf2, linkpath, target) == -1) {
+				xbps_error_printf("%s: xbps_path_rel: %s\n",
+				    pkgname, strerror(errno));
+				free(alternative);
+				return -1;
+			}
+			target = buf2;
 		}
 
-		if (strncmp(linkpath, "//", 2) == 0) {
-			p = linkpath+1;
-		} else {
-			p = linkpath;
-		}
-		if ((l = readlink(linkpath, path, sizeof path)) == -1) {
+		if ((l = root_readlink(xhp, linkpath, path, sizeof path)) == -1) {
 			xbps_error_printf(
 			    "%s: alternatives group %s symlink %s: %s\n",
-			    pkgname, grname, p, strerror(errno));
+			    pkgname, grname, linkpath, strerror(errno));
 			rv = 1;
 		} else if (strncmp(path, target, l) != 0) {
 			xbps_error_printf("%s: alternatives group %s symlink %s has wrong target.\n",
-			    pkgname, grname, p);
+			    pkgname, grname, linkpath);
 			rv = 1;
 		}
 		free(alternative);
-		free(target);
-		free(linkpath);
 	}
 
 	return rv;
