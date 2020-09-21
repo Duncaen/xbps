@@ -71,8 +71,10 @@ xbps_path_clean(char *dst)
 	char *d = dst;
 	bool rooted = *dst == '/';
 
-	if (xbps_strlcpy(buf, dst, sizeof buf) >= sizeof buf)
+	if (xbps_strlcpy(buf, dst, sizeof buf) >= sizeof buf) {
+		errno = ENOBUFS;
 		return -1;
+	}
 
 	if (rooted) {
 		*d++ = '/';
