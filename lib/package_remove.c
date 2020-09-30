@@ -92,10 +92,12 @@ remove_pkg_files(struct xbps_handle *xhp,
 		 * Remove the object if possible.
 		 */
 		if (remove(file) == -1) {
-			xbps_set_cb_state(xhp, XBPS_STATE_REMOVE_FILE_FAIL,
-			    errno, pkgver,
-			    "%s: failed to remove `%s': %s", pkgver,
-			    file, strerror(errno));
+			if (errno != ENOENT) {
+				xbps_set_cb_state(xhp, XBPS_STATE_REMOVE_FILE_FAIL,
+				    errno, pkgver,
+				    "%s: failed to remove `%s': %s", pkgver,
+				    file, strerror(errno));
+			}
 		} else {
 			/* success */
 			xbps_set_cb_state(xhp, XBPS_STATE_REMOVE_FILE,
@@ -198,7 +200,7 @@ xbps_remove_pkg(struct xbps_handle *xhp, const char *pkgver, bool update)
 			rv = EPERM;
 			goto out;
 		}
-		/* Remove links */
+		/* Remove files */
 		if ((rv = remove_pkg_files(xhp, obsoletes, pkgver)) != 0)
 			goto out;
 	}
