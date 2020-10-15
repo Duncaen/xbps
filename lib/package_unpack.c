@@ -125,11 +125,13 @@ unpack_archive(struct xbps_handle *xhp,
 			const char *file = NULL;
 			xbps_array_get_cstring_nocopy(obsoletes, i, &file);
 			if (remove(file) == -1) {
-				xbps_set_cb_state(xhp,
-					XBPS_STATE_REMOVE_FILE_OBSOLETE_FAIL,
-					errno, pkgver,
-					"%s: failed to remove obsolete entry `%s': %s",
-					pkgver, file, strerror(errno));
+				if (errno != ENOENT) {
+					xbps_set_cb_state(xhp,
+					    XBPS_STATE_REMOVE_FILE_OBSOLETE_FAIL,
+					    errno, pkgver,
+					    "%s: failed to remove obsolete entry `%s': %s",
+					    pkgver, file, strerror(errno));
+				}
 				continue;
 			}
 			xbps_set_cb_state(xhp,
