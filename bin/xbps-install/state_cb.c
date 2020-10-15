@@ -164,6 +164,10 @@ state_cb(const struct xbps_state_cb_data *xscd, void *cbdata UNUSED)
 	case XBPS_STATE_UNPACK_FILE_PRESERVED:
 		printf("%s\n", xscd->desc);
 		break;
+	case XBPS_STATE_UNPACK_FILE_NOEXTRACT:
+		if (xscd->xhp->flags & XBPS_FLAG_VERBOSE)
+			printf("%s\n", xscd->desc);
+		break;
 	/* errors */
 	case XBPS_STATE_UNPACK_FAIL:
 	case XBPS_STATE_UPDATE_FAIL:
