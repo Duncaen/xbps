@@ -71,12 +71,12 @@ check_pkg_symlinks(struct xbps_handle *xhp, const char *pkgname, void *arg)
 			continue;
 
 		if (!xbps_dictionary_get_cstring_nocopy(obj, "target", &tgt)) {
-			xbps_warn_printf("%s: `%s' symlink with "
+			xbps_error_printf("%s: `%s' symlink with "
 			    "empty target object!\n", pkgname, file);
 			continue;
 		}
 		if (tgt[0] == '\0') {
-			xbps_warn_printf("%s: `%s' symlink with "
+			xbps_error_printf("%s: `%s' symlink with "
 			    "empty target object!\n", pkgname, file);
 			continue;
 		}
@@ -86,8 +86,8 @@ check_pkg_symlinks(struct xbps_handle *xhp, const char *pkgname, void *arg)
 			rv = -1;
 			continue;
 		}
-		if (strcmp(lnk, tgt)) {
-			xbps_warn_printf("%s: modified symlink %s "
+		if (strcmp(lnk, tgt) != 0) {
+			xbps_error_printf("%s: modified symlink %s "
 			    "points to %s (shall be %s)\n",
 			    pkgname, file, lnk, tgt);
 			rv = -1;
