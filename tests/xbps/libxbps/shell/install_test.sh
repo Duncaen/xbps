@@ -330,7 +330,7 @@ install_and_update_revdeps_body() {
 	cd ..
 	xbps-install -r root --repository=repo -yvd D
 	atf_check_equal $? 0
-	atf_check -s exit:0 -o "inline:A-1.0_2" xbps-query -r root -p pkgver A
+	atf_check_equal $(xbps-query -r root -p pkgver A) A-1.0_2
 	atf_check_equal $(xbps-query -r root -p pkgver B) B-1.0_2
 	atf_check_equal $(xbps-query -r root -p pkgver C) C-1.0_2
 	atf_check_equal $(xbps-query -r root -p pkgver D) D-1.0_1
@@ -600,53 +600,59 @@ update_and_install_head() {
 	atf_set "descr" "Tests for pkg install: update installed version and install new from other repo"
 }
 
-run0() {
-	atf_check -s exit:0 -o ignore -e ignore "$@"
-}
-
-run19() {
-	atf_check -s exit:19 -o ignore -e ignore "$@"
-}
-
 update_and_install_body() {
 	mkdir -p repo1 repo1-dbg repo2 pkg/usr/bin
 
 	cd repo1
 	touch ../pkg/usr/bin/A
-	run0 xbps-create -A noarch -n A-1.0_1 -s "A pkg" ../pkg
+	xbps-create -A noarch -n A-1.0_1 -s "A pkg" ../pkg
 	rm ../pkg/usr/bin/A
-	run0 xbps-rindex -d -a $PWD/*.xbps
+	atf_check_equal $? 0
+	xbps-rindex -d -a $PWD/*.xbps
+	atf_check_equal $? 0
 	cd ..
 
 	cd repo1-dbg
-	run0 xbps-create -A noarch -n A-dbg-1.0_1 -D A-1.0_1 -s "A pkg" ../pkg
-	run0 xbps-rindex -d -a $PWD/*.xbps
+	xbps-create -A noarch -n A-dbg-1.0_1 -D A-1.0_1 -s "A pkg" ../pkg
+	atf_check_equal $? 0
+	xbps-rindex -d -a $PWD/*.xbps
+	atf_check_equal $? 0
 	cd ..
 
-	run0 xbps-install -r root --repo=repo1 --repo=repo1-dbg -yvd A A-dbg
+	xbps-install -r root --repo=repo1 --repo=repo1-dbg -yvd A A-dbg
+	atf_check_equal $? 0
 	atf_check_equal $(xbps-query -r root -p pkgver A) A-1.0_1
 
 	cd repo1
-	run0 xbps-create -A noarch -n A-1.0_2 -s "A pkg" ../pkg
-	run0 xbps-rindex -d -a $PWD/*.xbps
+	xbps-create -A noarch -n A-1.0_2 -s "A pkg" ../pkg
+	atf_check_equal $? 0
+	xbps-rindex -d -a $PWD/*.xbps
+	atf_check_equal $? 0
 	cd ..
 
 	cd repo1-dbg
-	run0 xbps-create -A noarch -n A-dbg-1.0_2 -D A-1.0_2 -s "A pkg" ../pkg
+	xbps-create -A noarch -n A-dbg-1.0_2 -D A-1.0_2 -s "A pkg" ../pkg
+	atf_check_equal $? 0
+	xbps-rindex -d -a $PWD/*.xbps
+	atf_check_equal $? 0
 	cd ..
 
 	cd repo2
 	touch ../pkg/usr/bin/B
-	run0 xbps-create -A noarch -n A-2.0_1 -s "A pkg" ../pkg
+	xbps-create -A noarch -n A-2.0_1 -s "A pkg" ../pkg
 	rm ../pkg/usr/bin/B
-	run0 xbps-rindex -d -a $PWD/*.xbps
+	atf_check_equal $? 0
+	xbps-rindex -d -a $PWD/*.xbps
+	atf_check_equal $? 0
 	cd ..
 
 	# Due to first repo wins, returns 19 because can't satisfy revdeps
-	run19 xbps-install -r root --repo=repo2 --repo=repo1 --repo=repo1-dbg -ydun A
+	xbps-install -r root --repo=repo2 --repo=repo1 --repo=repo1-dbg -ydun A
+	atf_check_equal $? 19
 
 	# Try with proper repo ordering
-	run0 xbps-install -r root --repo=repo1 --repo=repo1-dbg --repo=repo2 -ydu A
+	xbps-install -r root --repo=repo1 --repo=repo1-dbg --repo=repo2 -ydu A
+	atf_check_equal $? 0
 
 	out=$(xbps-query -r root -l|wc -l)
 	atf_check_equal "$out" "2"
@@ -658,7 +664,8 @@ update_and_install_body() {
 	atf_check_equal "$out" "A-dbg-1.0_2"
 
 	# check again with A-2.0_1 in first repo.
-	run19 xbps-install -r root --repo=repo2 --repo=repo1 --repo=repo1-dbg -ydun A
+	xbps-install -r root --repo=repo2 --repo=repo1 --repo=repo1-dbg -ydun A
+	atf_check_equal $? 19
 }
 
 atf_test_case update_issue_218
