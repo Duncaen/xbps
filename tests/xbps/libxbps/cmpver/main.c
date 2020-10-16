@@ -50,6 +50,49 @@ ATF_TC_BODY(cmpver_test, tc)
 
 	ATF_REQUIRE_EQ(xbps_cmpver("foo-0.1", "foo-0"), 1);
 	ATF_REQUIRE_EQ(xbps_cmpver("foo-0", "foo-0.1"), -1);
+	ATF_REQUIRE_EQ(xbps_cmpver("foo-1r", "foo-1r"), 0);
+
+	ATF_REQUIRE_EQ(xbps_cmpver("1.0.0", "1"), 0);
+	ATF_REQUIRE_EQ(xbps_cmpver("1", "1.0.0"), 0);
+	ATF_REQUIRE_EQ(xbps_cmpver("1.0.1", "1"), 1);
+	ATF_REQUIRE_EQ(xbps_cmpver("1", "1.0.1"), -1);
+
+	ATF_REQUIRE_EQ(xbps_cmpver("...", "0"), 0);
+	ATF_REQUIRE_EQ(xbps_cmpver("..1", "0.1"), 0);
+	ATF_REQUIRE_EQ(xbps_cmpver("...", "0"), 0);
+	ATF_REQUIRE_EQ(xbps_cmpver("0.0.0.0.0.0.0.0.0", "0.0.0.0.0.0.0.0.0.1"), -1);
+	ATF_REQUIRE_EQ(xbps_cmpver("0.0.0.0.0.0.0.0.0", "0.0.0.0.0.0.0.0.1"), -1);
+	ATF_REQUIRE_EQ(xbps_cmpver("0.0.0.0.0.0.0.0.0", "0.0.0.0.0.0.0.1"), -1);
+	ATF_REQUIRE_EQ(xbps_cmpver("0.0.0.0.0.0.0.0.0", "0.0.0.0.0.0.1"), -1);
+	ATF_REQUIRE_EQ(xbps_cmpver("0.0.0.0.0.0.0.0.0", "0.0.0.0.0.1"), -1);
+	ATF_REQUIRE_EQ(xbps_cmpver("0.0.0.0.0.0.0.0.0", "0.0.0.0.1"), -1);
+	ATF_REQUIRE_EQ(xbps_cmpver("0.0.0.0.0.0.0.0.0", "0.0.0.1"), -1);
+	ATF_REQUIRE_EQ(xbps_cmpver("0.0.0.0.0.0.0.0.0", "0.0.1"), -1);
+	ATF_REQUIRE_EQ(xbps_cmpver("0.0.0.0.0.0.0.0.0", "0.1"), -1);
+	ATF_REQUIRE_EQ(xbps_cmpver("0.0.0.0.0.0.0.0.0", "1"), -1);
+
+	ATF_REQUIRE_EQ(xbps_cmpver("foo-1.alpha", "foo-1.ALPHA"), 0);
+	ATF_REQUIRE_EQ(xbps_cmpver("foo-1.rc", "foo-1.rc"), 0);
+	ATF_REQUIRE_EQ(xbps_cmpver("foo-1_1", "foo-1_2"), -1);
+	ATF_REQUIRE_EQ(xbps_cmpver("foo-1_2", "foo-1_1"), 1);
+	ATF_REQUIRE_EQ(xbps_cmpver("foo-1_", "foo-1_1"), -1);
+	ATF_REQUIRE_EQ(xbps_cmpver("foo-1_1", "foo-1_"), 1);
+	ATF_REQUIRE_EQ(xbps_cmpver("foo-1_", "foo-1_"), 0);
+	ATF_REQUIRE_EQ(xbps_cmpver("foo-1_", "foo-1_0"), 0);
+	ATF_REQUIRE_EQ(xbps_cmpver("foo-1_0", "foo-1_"), 0);
+	ATF_REQUIRE_EQ(xbps_cmpver("foo-1", "foo-1_"), 0);
+	ATF_REQUIRE_EQ(xbps_cmpver("foo-1_", "foo-1"), 0);
+	ATF_REQUIRE_EQ(xbps_cmpver("foo-1_1", "foo-1"), 1);
+	ATF_REQUIRE_EQ(xbps_cmpver("foo-1", "foo-1_1"), -1);
+	ATF_REQUIRE_EQ(xbps_cmpver("foo-1_1_2", "foo-1_1_2"), 0);
+	ATF_REQUIRE_EQ(xbps_cmpver("foo-1_2", "foo-1_1_2"), 0);
+	ATF_REQUIRE_EQ(xbps_cmpver("foo-1_1_2", "foo-1_2"), 0);
+
+	ATF_REQUIRE_EQ(xbps_cmpver("abc", ".1.2.3"), 0);
+
+	ATF_REQUIRE_EQ(xbps_cmpver("beta", "beta"), 0);
+	ATF_REQUIRE_EQ(xbps_cmpver("betabeta", "betabeta"), 0);
+	ATF_REQUIRE_EQ(xbps_cmpver("alphabeta", "betabeta"), -1);
 
 	/* ATF_REQUIRE_EQ(xbps_cmpver("a-1.0.1", "b-1.0_1"), 1); */
 }

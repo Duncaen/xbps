@@ -298,38 +298,36 @@ install_and_update_revdeps_head() {
 
 install_and_update_revdeps_body() {
 	mkdir -p repo pkg/usr/bin
+
 	cd repo
-	xbps-create -A noarch -n A-1.0_1 -s "A pkg" ../pkg
-	atf_check_equal $? 0
-	xbps-create -A noarch -n B-1.0_1 -s "B pkg" --dependencies "A-1.0_1" ../pkg
-	atf_check_equal $? 0
-	xbps-create -A noarch -n C-1.0_1 -s "C pkg" --dependencies "B-1.0_1" ../pkg
-	atf_check_equal $? 0
-
-	xbps-rindex -d -a $PWD/*.xbps
-	atf_check_equal $? 0
-
+	create_pkg A-1.0_1 ../pkg
+	create_pkg B-1.0_1 --dependencies "A-1.0_1" ../pkg
+	create_pkg C-1.0_1 --dependencies "B-1.0_1" ../pkg
 	cd ..
-	xbps-install -r root --repository=repo -yvd C
-	atf_check_equal $? 0
+
+	atf_check -s exit:0 -o ignore \
+		-e match:"\[DEBUG\] A-1.0_1: state 1 rv 0" \
+		-e match:"\[DEBUG\] B-1.0_1: state 1 rv 0" \
+		-e match:"\[DEBUG\] C-1.0_1: state 1 rv 0" \
+		xbps-install -r root --repository=repo -yvd C
+
 	atf_check_equal $(xbps-query -r root -p pkgver A) A-1.0_1
 	atf_check_equal $(xbps-query -r root -p pkgver B) B-1.0_1
 	atf_check_equal $(xbps-query -r root -p pkgver C) C-1.0_1
 
 	cd repo
-	xbps-create -A noarch -n A-1.0_2 -s "A pkg" ../pkg
-	atf_check_equal $? 0
-	xbps-create -A noarch -n B-1.0_2 -s "B pkg" --dependencies "A-1.0_2" ../pkg
-	atf_check_equal $? 0
-	xbps-create -A noarch -n C-1.0_2 -s "C pkg" --dependencies "B-1.0_2" ../pkg
-	atf_check_equal $? 0
-	xbps-create -A noarch -n D-1.0_1 -s "D pkg" --dependencies "C-1.0_2" ../pkg
-	atf_check_equal $? 0
-	xbps-rindex -d -a $PWD/*.xbps
-	atf_check_equal $? 0
+	create_pkg A-1.0_2 ../pkg
+	create_pkg B-1.0_2 --dependencies "A-1.0_2" ../pkg
+	create_pkg C-1.0_2 --dependencies "B-1.0_2" ../pkg
+	create_pkg D-1.0_1 --dependencies "C-1.0_2" ../pkg
 	cd ..
-	xbps-install -r root --repository=repo -yvd D
-	atf_check_equal $? 0
+
+	atf_check -s exit:0 -o ignore \
+		-e match:"\[DEBUG\] A-1.0_2: state 1 rv 0" \
+		-e match:"\[DEBUG\] B-1.0_2: state 1 rv 0" \
+		-e match:"\[DEBUG\] C-1.0_2: state 1 rv 0" \
+		-e match:"\[DEBUG\] D-1.0_1: state 1 rv 0" \
+		xbps-install -r root --repository=repo -yvd D
 	atf_check_equal $(xbps-query -r root -p pkgver A) A-1.0_2
 	atf_check_equal $(xbps-query -r root -p pkgver B) B-1.0_2
 	atf_check_equal $(xbps-query -r root -p pkgver C) C-1.0_2
@@ -726,6 +724,7 @@ update_issue_218_body() {
 }
 
 atf_init_test_cases() {
+	. $(atf_get_srcdir)/helpers.sh
 	atf_add_test_case install_empty
 	atf_add_test_case install_with_deps
 	atf_add_test_case install_with_vpkg_deps
