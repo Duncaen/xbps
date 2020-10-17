@@ -474,32 +474,6 @@ xbps_xasprintf(const char *fmt, ...)
 }
 
 /*
- * Match pkg against pattern, return 1 if matching, 0 otherwise or -1 on error.
- */
-int
-xbps_pkgpattern_match(const char *pkg, const char *pattern)
-{
-	assert(pkg);
-	assert(pattern);
-
-	/* simple match on "pkg" against "pattern" */
-	if (strcmp(pattern, pkg) == 0)
-		return 1;
-
-	/* perform relational dewey match on version number */
-	if (strpbrk(pattern, "<>") != NULL)
-		return dewey_match(pattern, pkg);
-
-	/* glob match */
-	if (strpbrk(pattern, "*?[]") != NULL)
-		if (fnmatch(pattern, pkg, FNM_PERIOD) == 0)
-			return 1;
-
-	/* no match */
-	return 0;
-}
-
-/*
  * Small wrapper for NetBSD's humanize_number(3) with some
  * defaults set that we care about.
  */

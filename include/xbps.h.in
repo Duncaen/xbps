@@ -2334,6 +2334,11 @@ xbps_plist_array_from_file(struct xbps_handle *xhp, const char *fname);
 xbps_dictionary_t
 xbps_plist_dictionary_from_file(struct xbps_handle *xhp, const char *fname);
 
+int xbps_version_cmp(const char *s1, const char *s2);
+
+int xbps_version_cmpn(const char *s1, const char *e1,
+		const char *s2, const char *e2);
+
 /*@}*/
 
 #ifdef __cplusplus

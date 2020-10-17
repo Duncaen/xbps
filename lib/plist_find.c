@@ -168,6 +168,7 @@ match_pkg_by_pattern(xbps_dictionary_t repod, const char *p)
 
 	/* match by pkgpattern in pkgver */
 	if (!xbps_pkgpattern_name(pkgname, sizeof(pkgname), p)) {
+		/* XXX: this shouldn't be possible */
 		if (xbps_pkg_name(pkgname, sizeof(pkgname), p)) {
 			return match_pkg_by_pkgver(repod, p);
 		}
