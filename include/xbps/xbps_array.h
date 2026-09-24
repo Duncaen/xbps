@@ -68,9 +68,7 @@ char *		xbps_array_externalize(xbps_array_t);
 xbps_array_t	xbps_array_internalize(const char *);
 
 bool		xbps_array_externalize_to_file(xbps_array_t, const char *);
-bool		xbps_array_externalize_to_zfile(xbps_array_t, const char *);
 xbps_array_t	xbps_array_internalize_from_file(const char *);
-xbps_array_t	xbps_array_internalize_from_zfile(const char *);
 
 /*
  * Utility routines to make it more convenient to work with values

@@ -78,10 +78,7 @@ xbps_dictionary_t xbps_dictionary_internalize(const char *);
 
 bool		xbps_dictionary_externalize_to_file(xbps_dictionary_t,
 						    const char *);
-bool		xbps_dictionary_externalize_to_zfile(xbps_dictionary_t,
-						     const char *);
 xbps_dictionary_t xbps_dictionary_internalize_from_file(const char *);
-xbps_dictionary_t xbps_dictionary_internalize_from_zfile(const char *);
 
 const char *	xbps_dictionary_keysym_cstring_nocopy(xbps_dictionary_keysym_t);
 

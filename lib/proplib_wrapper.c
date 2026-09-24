@@ -148,22 +148,10 @@ xbps_array_externalize_to_file(xbps_array_t a, const char *s)
 	return prop_array_externalize_to_file(a, s);
 }
 
-bool
-xbps_array_externalize_to_zfile(xbps_array_t a, const char *s)
-{
-	return prop_array_externalize_to_zfile(a, s);
-}
-
 xbps_array_t
 xbps_array_internalize_from_file(const char *s)
 {
 	return prop_array_internalize_from_file(s);
-}
-
-xbps_array_t
-xbps_array_internalize_from_zfile(const char *s)
-{
-	return prop_array_internalize_from_zfile(s);
 }
 
 /*
@@ -561,22 +549,10 @@ xbps_dictionary_externalize_to_file(xbps_dictionary_t d, const char *s)
 	return prop_dictionary_externalize_to_file(d, s);
 }
 
-bool
-xbps_dictionary_externalize_to_zfile(xbps_dictionary_t d, const char *s)
-{
-	return prop_dictionary_externalize_to_zfile(d, s);
-}
-
 xbps_dictionary_t
 xbps_dictionary_internalize_from_file(const char *s)
 {
 	return prop_dictionary_internalize_from_file(s);
-}
-
-xbps_dictionary_t
-xbps_dictionary_internalize_from_zfile(const char *s)
-{
-	return prop_dictionary_internalize_from_zfile(s);
 }
 
 const char *
@@ -932,26 +908,12 @@ xbps_string_equals_cstring(xbps_string_t s, const char *ss)
 	return prop_string_equals_cstring(s, ss);
 }
 
-/* xbps specific helpers */
-xbps_array_t
-xbps_plist_array_from_file(const char *path)
-{
-	xbps_array_t a;
-
-	a = xbps_array_internalize_from_zfile(path);
-	if (xbps_object_type(a) != XBPS_TYPE_ARRAY) {
-		xbps_dbg_printf(
-		    "xbps: failed to internalize array from %s\n", path);
-	}
-	return a;
-}
-
 xbps_dictionary_t
 xbps_plist_dictionary_from_file(const char *path)
 {
 	xbps_dictionary_t d;
 
-	d = xbps_dictionary_internalize_from_zfile(path);
+	d = xbps_dictionary_internalize_from_file(path);
 	if (xbps_object_type(d) != XBPS_TYPE_DICTIONARY) {
 		xbps_dbg_printf(
 		    "xbps: failed to internalize dict from %s\n", path);
