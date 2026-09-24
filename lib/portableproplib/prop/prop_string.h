@@ -32,6 +32,8 @@
 #ifndef _PROPLIB_PROP_STRING_H_
 #define	_PROPLIB_PROP_STRING_H_
 
+#include <stdarg.h>
+
 #include <prop/prop_object.h>
 
 #if __has_attribute(format)
@@ -46,6 +48,7 @@ typedef struct _prop_string *prop_string_t;
 extern "C" {
 #endif
 
+prop_string_t	prop_string_create_vformat(const char *, va_list) PRINTF_LIKE(1, 0);
 prop_string_t	prop_string_create_format(const char *, ...) PRINTF_LIKE(1, 2);
 prop_string_t	prop_string_create_copy(const char *);
 prop_string_t	prop_string_create_nocopy(const char *);

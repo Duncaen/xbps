@@ -323,22 +323,22 @@ prop_string_create_cstring_nocopy(const char *str)
 }
 
 /*
- * prop_string_create_format --
+ * prop_string_create_vformat --
  *	Create a string object using the provided format string.
  */
-_PROP_EXPORT prop_string_t PRINTF_LIKE(1, 2)
-prop_string_create_format(const char *fmt, ...)
+_PROP_EXPORT prop_string_t PRINTF_LIKE(1, 0)
+prop_string_create_vformat(const char *fmt, va_list ap)
 {
 	char *str = NULL;
 	int len;
 	size_t nlen;
-	va_list ap;
+	va_list ap2;
 
 	_PROP_ASSERT(fmt != NULL);
 
-	va_start(ap, fmt);
-	len = vsnprintf(NULL, 0, fmt, ap);
-	va_end(ap);
+	va_copy(ap2, ap);
+	len = vsnprintf(NULL, 0, fmt, ap2);
+	va_end(ap2);
 
 	if (len < 0)
 		return (NULL);
@@ -348,11 +348,28 @@ prop_string_create_format(const char *fmt, ...)
 	if (str == NULL)
 		return (NULL);
 
-	va_start(ap, fmt);
 	vsnprintf(str, nlen, fmt, ap);
-	va_end(ap);
 
 	return _prop_string_instantiate(0, str, (size_t)len);
+}
+
+/*
+ * prop_string_create_format --
+ *	Create a string object using the provided format string.
+ */
+_PROP_EXPORT prop_string_t PRINTF_LIKE(1, 2)
+prop_string_create_format(const char *fmt, ...)
+{
+	prop_string_t s;
+	va_list ap;
+
+	_PROP_ASSERT(fmt != NULL);
+
+	va_start(ap, fmt);
+	s = prop_string_create_vformat(fmt, ap);
+	va_end(ap);
+
+	return s;
 }
 
 /*
