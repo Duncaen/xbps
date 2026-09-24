@@ -264,7 +264,31 @@ struct _prop_object_iterator {
 
 #define	_PROP_MALLOC_DEFINE(t, s, l)	/* nothing */
 
-#if defined(HAVE_NBTOOL_CONFIG_H)
+#if defined(HAVE_ATOMICS)
+#include <pthread.h>
+#define	_PROP_MUTEX_DECL_STATIC(x)	static pthread_mutex_t x;
+#define	_PROP_MUTEX_INIT(x)		pthread_mutex_init(&(x), NULL)
+#define	_PROP_MUTEX_LOCK(x)		pthread_mutex_lock(&(x))
+#define	_PROP_MUTEX_UNLOCK(x)		pthread_mutex_unlock(&(x))
+
+#define	_PROP_RWLOCK_DECL(x)		pthread_rwlock_t x ;
+#define	_PROP_RWLOCK_INIT(x)		pthread_rwlock_init(&(x), NULL)
+#define	_PROP_RWLOCK_RDLOCK(x)		pthread_rwlock_rdlock(&(x))
+#define	_PROP_RWLOCK_WRLOCK(x)		pthread_rwlock_wrlock(&(x))
+#define	_PROP_RWLOCK_UNLOCK(x)		pthread_rwlock_unlock(&(x))
+#define	_PROP_RWLOCK_DESTROY(x)		pthread_rwlock_destroy(&(x))
+
+#define _PROP_ONCE_DECL(x)						\
+	static pthread_once_t x = PTHREAD_ONCE_INIT;
+#define _PROP_ONCE_RUN(x,f)		pthread_once(&(x),(void(*)(void))f)
+
+#define _PROP_ATOMIC_LOAD(x)		__atomic_load_n((x), __ATOMIC_RELAXED)
+#define _PROP_ATOMIC_INC32(x)		__atomic_fetch_add((x), 1, __ATOMIC_RELAXED)
+#define _PROP_ATOMIC_DEC32(x)		__atomic_fetch_sub((x), 1, __ATOMIC_RELEASE)
+#define _PROP_ATOMIC_INC32_NV(x, v)	(v) = __atomic_add_fetch((x), 1, __ATOMIC_RELAXED)
+#define _PROP_ATOMIC_DEC32_NV(x, v)	(v) = __atomic_sub_fetch((x), 1, __ATOMIC_ACQ_REL)
+
+#elif defined(HAVE_NBTOOL_CONFIG_H)
 /*
  * None of NetBSD's build tools are multi-threaded.
  */
