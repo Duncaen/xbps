@@ -32,7 +32,7 @@
 #ifndef _PROP_STACK_H
 #define _PROP_STACK_H
 
-#include <sys/queue.h>
+#include "queue.h"
 
 #include <prop/prop_object.h>
 
